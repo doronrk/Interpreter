@@ -6,22 +6,26 @@ data Expr =
 	| Minus Expr Expr
 	| Times Expr Expr
 	| Divide Expr Expr
+	| Variable (String, Expr)
 
-eval :: Expr -> Int
-eval e = case e of 
+eval :: Expr -> Env -> Int
+eval e env = case e of 
 	Numb x -> x
-	Plus e1 e2 -> eval e1 + eval e2
-	Minus e1 e2 -> eval e1 - eval e2
-	Times e1 e2 -> eval e1 * eval e2
-	Divide e1 e2 -> eval e1 `div` eval e2
+	Plus e1 e2 -> eval e1 env + eval e2 env
+	Minus e1 e2 -> eval e1 env - eval e2 env
+	Times e1 e2 -> eval e1 env * eval e2 env
+	Divide e1 e2 -> eval e1 env `div` eval e2 env
+	Variable (s, e1) -> eval (getExpr s env) env
 
+
+a = ("a", (Numb 5))
+b = ("b", (Numb 6))
+myEnv = [a,b]
 
 type Env = [(String, Expr)]
 
-lookup' :: Env -> String -> Bool
---lookup [] _ = error "oh no, unreferenced variable"
-lookup' (x:xs) v = (fst x) == v
-
-contains' :: [Int] -> Int -> Bool
-contains' [] _ = False
-contains' (x:xs) y = x==y || contains' xs y
+getExpr :: String -> Env -> Expr
+getExpr [] _ = error "oh no, unreferenced variable"
+getExpr v ((a,b):xs)
+	| a == v = b
+	| otherwise = getExpr v xs
