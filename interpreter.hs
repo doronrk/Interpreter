@@ -40,8 +40,9 @@ myEnv3 = addVar "three" (Plus (Numb 2) (Numb 1)) myEnv2
 testNumb0 = TestCase (assertEqual "Numb 0" 0 (eval (Numb 0) []))
 testNumb1 = TestCase (assertEqual "Numb 1" 1 (eval (Numb 1) []))
 testPlus = TestCase (assertEqual "Plus (Numb 1) (Numb 2)" 3 (eval (Plus (Numb 1) (Numb 2)) []))
+testEnv = TestCase (assertEqual "Variable a 4" 4 (eval (Variable "a") [("a", Numb 4)]))
 
-tests = TestList [testNumb0, testNumb1, testPlus]
+tests = TestList [testNumb0, testNumb1, testPlus, testEnv]
 
 main = do runTestTT tests
 
