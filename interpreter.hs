@@ -10,6 +10,9 @@ data Expr =
 	| Divide Expr Expr
 	| Variable String
 	| Let String Expr Expr
+	| Func String Expr
+	| CallF Expr Expr
+	deriving (Show)
 
 eval :: Expr -> Env -> Int
 eval e env = case e of 
@@ -20,6 +23,10 @@ eval e env = case e of
 	Divide e1 e2 -> eval e1 env `div` eval e2 env
 	Variable s -> eval (getExpr s env) env
 	Let s e1 e2 -> eval e2 (addVar s e1 env)
+	CallF f arg -> case f of
+					Func s body -> eval body (addVar s arg env)
+					_ -> error "tried to call non-function"
+	Func s e1 -> error "Not implented yet!"
 	-- 2a) we need env in each call to eval since there may be variables nested within Expr's
 	-- 2b) however, is there a way to avoid writing it in every recursive line since the Env doesn't change as we eval? 
 	-- 2c) (at least, I don't think the Env changes since variables are assigned during parsing, correct?)
@@ -34,7 +41,6 @@ getExpr s ((a,b):xs)
 addVar :: String -> Expr -> Env -> Env
 addVar s e1 env = (s,e1):env
 
-
 myEnv = addVar "a" (Numb 1) []
 myEnv2 = addVar "b" (Numb 2) myEnv
 myEnv3 = addVar "three" (Plus (Numb 2) (Numb 1)) myEnv2
@@ -45,8 +51,9 @@ testPlus = TestCase (assertEqual "Plus (Numb 1) (Numb 2)" 3 (eval (Plus (Numb 1)
 testEnv = TestCase (assertEqual "Variable a 4" 4 (eval (Variable "a") [("a", Numb 4)]))
 testLet = TestCase (assertEqual "Let" 2 (eval (Let "x" (Numb 1) (Plus (Variable "x") (Variable "x"))) []))
 testLet1 = TestCase (assertEqual "nested Let" 3 (eval (Let "x" (Numb 1) (Let "y" (Numb 2) (Plus (Variable "x") (Variable "y")))) []))
+testCallF1 = TestCase (assertEqual "" 4 (eval (CallF (Func "x" (Plus (Variable "x") (Numb 1) )) (Numb 3)) []))
 
-tests = TestList [testNumb0, testNumb1, testPlus, testEnv, testLet, testLet1]
+tests = TestList [testNumb0, testNumb1, testPlus, testEnv, testLet, testLet1, testCallF1]
 
 main = do runTestTT tests
 
