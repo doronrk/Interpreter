@@ -1,6 +1,8 @@
 --{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 
-data Expr = 
+import Test.HUnit
+
+data Expr =
 	  Numb Int
 	| Plus Expr Expr
 	| Minus Expr Expr
@@ -29,3 +31,15 @@ getExpr [] _ = error "oh no, unreferenced variable"
 getExpr v ((a,b):xs)
 	| a == v = b
 	| otherwise = getExpr v xs
+
+contains' :: [Int] -> Int -> Bool
+contains' [] _ = False
+contains' (x:xs) y = x==y || contains' xs y
+
+testNumb0 = TestCase (assertEqual "Numb 0" 0 (eval (Numb 0) []))
+testNumb1 = TestCase (assertEqual "Numb 1" 1 (eval (Numb 1) []))
+testPlus = TestCase (assertEqual "Plus (Numb 1) (Numb 2)" 3 (eval (Plus (Numb 1) (Numb 2)) []))
+
+tests = TestList [testNumb0, testNumb1, testPlus]
+
+main = do runTestTT tests
