@@ -1,5 +1,5 @@
 --{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
-
+module Interpreter(Expr(..)) where
 import Test.HUnit
 
 data Expr =

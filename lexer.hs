@@ -1,3 +1,4 @@
+module Lexer(Token(..), tokenize) where
 import Data.Char (isDigit, isSpace, isAlpha, isAlphaNum)
 import Test.HUnit
 
