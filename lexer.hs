@@ -6,6 +6,7 @@ import Test.HUnit
 
 data Token =
 	  TInt Int -- digit digit*
+	| TBool Bool
 	| TLParen -- '('
 	| TRParen -- ')'
 	| TPlus -- '+'
@@ -43,6 +44,8 @@ tokenize all@(c: cs)
 			"let" -> TLet : tokenize rest
 			"in" -> TIn : tokenize rest
 			"fn" -> TFn : tokenize rest
+			"true" -> (TBool True) : tokenize rest
+			"false" -> (TBool False) : tokenize rest
 			_ -> (TId id) : tokenize rest
 tokenize [] = []
 --tokenize (c : cs) =
