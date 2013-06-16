@@ -52,20 +52,10 @@ term :: Parser AST
 term = factor >>= term'
 
 term' :: AST -> Parser AST
-term' lhs = (symbol "*" >> factor >>= \rhs -> term' (AST_Mul lhs rhs)) +++ return lhs
-
-mul :: Parser AST
-mul = (do lhs <- factor
-          symbol "*"
-          rhs <- factor
-          rest <- term
-          return (AST_Mul lhs rhs))
-
--- divide :: Parser AST
--- divide = (do lhs <- factor
---              symbol "/"
---              rhs <- term
---              return (AST_Div lhs rhs))
+term' lhs = (do op <- symbol "*" +++ symbol "/"
+                rhs <- factor
+                (term' ((if op == "*" then AST_Mul else AST_Div) lhs rhs)))
+            +++ return lhs
 
 testExpr = TestCase (assertEqual "expr" [("foo","")] (parse expr "(foo)"))
 testNum = TestCase (assertEqual "num" [(AST_Num 123,"456")] (parse factor "123 456"))
@@ -73,7 +63,8 @@ testBool = TestCase (assertEqual "bool" [(AST_Bool True,"456")] (parse factor "t
 testId = TestCase (assertEqual "id" [(AST_Id "foo","456")] (parse factor "foo 456"))
 testMul = TestCase (assertEqual "mul" [(AST_Mul (AST_Num 1) (AST_Num 2), "")] (parse term "1 * 2"))
 testMulLeftAssoc = TestCase (assertEqual "mul should be left assoc" [(AST_Mul (AST_Mul (AST_Num 1) (AST_Num 2)) (AST_Num 3), "")] (parse term "1 * 2 * 3"))
+testMulDivLeftAssoc = TestCase (assertEqual "mul & div should be left assoc" [(AST_Div (AST_Mul (AST_Num 1) (AST_Num 2)) (AST_Num 3), "")] (parse term "1 * 2 / 3"))
 
-tests = TestList [testExpr,testNum,testBool,testId,testMul,testMulLeftAssoc]
+tests = TestList [testExpr,testNum,testBool,testId,testMul,testMulLeftAssoc,testMulDivLeftAssoc]
 
 main = do runTestTT tests
