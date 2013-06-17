@@ -8,6 +8,8 @@ import Text.Parsec.String (Parser) -- type Parser = Parsec String ()
 import qualified Text.Parsec.Token as Token
 import Text.Parsec.Language(haskellStyle)
 
+import Interpreter(Expr(..))
+
 -- grammar for the lambda calculus
 
 -- exprs  -> expr expr
@@ -31,18 +33,18 @@ import Text.Parsec.Language(haskellStyle)
 -- factor -> id
 -- factor -> ( expr )
 
-data AST = Bool Bool
-         | Num Int
-         | Id String
-         | Add AST AST
-         | Sub AST AST
-         | Mul AST AST
-         | Div AST AST
-         | If AST AST AST
-         | Let String AST AST
-         | Fn String AST
-         | App AST AST
-         deriving (Show, Eq)
+-- data AST = Bool Bool
+--          | Num Int
+--          | Id String
+--          | Add AST AST
+--          | Sub AST AST
+--          | Mul AST AST
+--          | Div AST AST
+--          | If AST AST AST
+--          | Let String AST AST
+--          | Fn String AST
+--          | App AST AST
+--          deriving (Show, Eq)
 
 lexer = Token.makeTokenParser haskellStyle
 symbol     = Token.symbol lexer
@@ -51,13 +53,13 @@ parens     = Token.parens lexer
 identifier = Token.identifier lexer
 
 -- two expressions is an application, or one expression alone
-exprs :: Parser AST
+exprs :: Parser Expr
 exprs = try (do e1 <- expr
                 e2 <- expr
-                return (App e1 e2))
+                return (CallF e1 e2))
         <|> expr
 
-expr :: Parser AST
+expr :: Parser Expr
 expr = try (do symbol "if"
                e1 <- exprs
                symbol "then"
@@ -69,7 +71,7 @@ expr = try (do symbol "if"
                    id <- identifier
                    symbol "=>"
                    body <- exprs
-                   return (Fn id body))
+                   return (Func [] id body))
        <|> try (do symbol "let"
                    id <- identifier
                    symbol "="
@@ -79,38 +81,38 @@ expr = try (do symbol "if"
                    return (Let id bound body))
        <|> (term >>= expr')
 
-expr' :: AST -> Parser AST
+expr' :: Expr -> Parser Expr
 expr' lhs = try (do op <- try (symbol "+") <|> symbol "-"
                     rhs <- term
-                    (expr' ((if op == "+" then Add else Sub) lhs rhs)))
+                    (expr' ((if op == "+" then Plus else Minus) lhs rhs)))
             <|> return lhs
 
-astNum :: Parser AST
+astNum :: Parser Expr
 astNum = do int <- integer
-            return (Num (fromIntegral int)) -- cast Integer to Int, huh?
+            return (Numb (fromIntegral int)) -- cast Integer to Int, huh?
 
-astBool :: Parser AST
+astBool :: Parser Expr
 astBool = do b <- try false <|> true
-             return (Bool b)
+             return (Boolean b)
           where false = do symbol "false"
                            return False
                 true = do symbol "true"
                           return True
 
-astId :: Parser AST
+astId :: Parser Expr
 astId = do id <- identifier
-           return (Id id)
+           return (Variable id)
 
-factor :: Parser AST
+factor :: Parser Expr
 factor = try (parens exprs) <|> try astNum <|> try astBool <|> try astId
 
-term :: Parser AST
+term :: Parser Expr
 term = factor >>= term'
 
-term' :: AST -> Parser AST
+term' :: Expr -> Parser Expr
 term' lhs = try (do op <- try (symbol "*") <|> symbol "/"
                     rhs <- factor
-                    (term' ((if op == "*" then Mul else Div) lhs rhs)))
+                    (term' ((if op == "*" then Times else Divide) lhs rhs)))
             <|> return lhs
 
 -- used for testing only, bails on erros

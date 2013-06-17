@@ -1,30 +1,33 @@
 module ParserTests where
 import Test.HUnit
 import Parser
+import Interpreter(Expr(..))
 
-testFn1 = TestCase (assertEqual "fn1" (Fn "x" (Id "x")) (unsafe exprs "fn x => x"))
-testFn2 = TestCase (assertEqual "fn2" (Fn "x" (Id "x")) (unsafe exprs "(fn x => x)"))
-testFn3 = TestCase (assertEqual "fn3" (Fn "x" (Id "x")) (unsafe exprs "fn x => (x)"))
-testFn4 = TestCase (assertEqual "fn4" (Fn "x" (Id "x")) (unsafe exprs "(fn x => (x))"))
-testFn5 = TestCase (assertEqual "fn5" (Fn "f" (Fn "x" (App (Id "f") (Id "x")))) (unsafe exprs "fn f => fn x => f x"))
+testFunc1 = TestCase (assertEqual "fn1" (Func [] "x" (Variable "x")) (unsafe exprs "fn x => x"))
+testFunc2 = TestCase (assertEqual "fn2" (Func [] "x" (Variable "x")) (unsafe exprs "(fn x => x)"))
+testFunc3 = TestCase (assertEqual "fn3" (Func [] "x" (Variable "x")) (unsafe exprs "fn x => (x)"))
+testFunc4 = TestCase (assertEqual "fn4" (Func [] "x" (Variable "x")) (unsafe exprs "(fn x => (x))"))
 
-testApp1 = TestCase (assertEqual "app1" (If (App (Id "f") (Id "x")) (App (Id "g") (Id "y")) (App (Id "h") (Id "z"))) (unsafe exprs "if f x then g y else h z"))
-testApp2 = TestCase (assertEqual "app2" (Let "x" (App (Id "f") (Id "y")) (App (Id "g") (Id "x"))) (unsafe exprs "let x = f y in g x"))
+testFunc5 = TestCase (assertEqual "fn5" (Func [] "f" (Func [] "x" (CallF (Variable "f") (Variable "x")))) (unsafe exprs "fn f => fn x => f x"))
 
-testNum   = TestCase (assertEqual   "num" (Num 123)    (unsafe exprs "123"))
-testBool1 = TestCase (assertEqual "bool1" (Bool True)  (unsafe exprs "true"))
-testBool2 = TestCase (assertEqual "bool2" (Bool False) (unsafe exprs "false"))
-testId    = TestCase (assertEqual    "id" (Id "foo")   (unsafe exprs "foo"))
+testCallF1 = TestCase (assertEqual "app1" (If (CallF (Variable "f") (Variable "x")) (CallF (Variable "g") (Variable "y")) (CallF (Variable "h") (Variable "z")))
+                                   (unsafe exprs "if f x then g y else h z"))
+testCallF2 = TestCase (assertEqual "app2" (Let "x" (CallF (Variable "f") (Variable "y")) (CallF (Variable "g") (Variable "x"))) (unsafe exprs "let x = f y in g x"))
 
-testMul1 = TestCase (assertEqual "mul"                            (Mul (Num 1) (Num 2))               (unsafe exprs "1 * 2"))
-testMul2 = TestCase (assertEqual "mul should be left assoc"       (Mul (Mul (Num 1) (Num 2)) (Num 3)) (unsafe exprs "1 * 2 * 3"))
-testMul3 = TestCase (assertEqual "mul & div should be left assoc" (Div (Mul (Num 1) (Num 2)) (Num 3)) (unsafe exprs "1 * 2 / 3"))
+testNumb   = TestCase (assertEqual   "num" (Numb 123)            (unsafe exprs "123"))
+testBoolean1 = TestCase (assertEqual "bool1" (Boolean True)      (unsafe exprs "true"))
+testBoolean2 = TestCase (assertEqual "bool2" (Boolean False)     (unsafe exprs "false"))
+testVariable    = TestCase (assertEqual    "id" (Variable "foo") (unsafe exprs "foo"))
 
-testAdd1 = TestCase (assertEqual "add"                            (Add (Num 1) (Num 2))               (unsafe exprs "1 + 2"))
-testAdd2 = TestCase (assertEqual "add should be left assoc"       (Add (Add (Num 1) (Num 2)) (Num 3)) (unsafe exprs "1 + 2 + 3"))
-testAdd3 = TestCase (assertEqual "add & sub should be left assoc" (Sub (Add (Num 1) (Num 2)) (Num 3)) (unsafe exprs "1 + 2 - 3"))
-testAdd4 = TestCase (assertEqual "add and mul"                    (Add (Mul (Num 1) (Num 2)) (Num 3)) (unsafe exprs "1 * 2 + 3"))
+testTimes1 = TestCase (assertEqual "mul"                            (Times (Numb 1) (Numb 2))                   (unsafe exprs "1 * 2"))
+testTimes2 = TestCase (assertEqual "mul should be left assoc"       (Times (Times (Numb 1) (Numb 2)) (Numb 3))  (unsafe exprs "1 * 2 * 3"))
+testTimes3 = TestCase (assertEqual "mul & div should be left assoc" (Divide (Times (Numb 1) (Numb 2)) (Numb 3)) (unsafe exprs "1 * 2 / 3"))
 
-testSub = TestCase (assertEqual "sub" (Sub (Num 1) (Num 2)) (unsafe exprs "1 - 2"))
+testPlus1 = TestCase (assertEqual "add"                            (Plus (Numb 1) (Numb 2))                  (unsafe exprs "1 + 2"))
+testPlus2 = TestCase (assertEqual "add should be left assoc"       (Plus (Plus (Numb 1) (Numb 2)) (Numb 3))  (unsafe exprs "1 + 2 + 3"))
+testPlus3 = TestCase (assertEqual "add & sub should be left assoc" (Minus (Plus (Numb 1) (Numb 2)) (Numb 3)) (unsafe exprs "1 + 2 - 3"))
+testPlus4 = TestCase (assertEqual "add and mul"                    (Plus (Times (Numb 1) (Numb 2)) (Numb 3)) (unsafe exprs "1 * 2 + 3"))
 
-main = do runTestTT (TestList [testFn1, testFn2, testFn3, testFn4, testFn5, testApp1, testApp2, testNum, testBool1, testBool2, testId, testMul1, testMul2, testMul3, testAdd1, testAdd2, testAdd3, testAdd4, testSub])
+testMinus = TestCase (assertEqual "sub" (Minus (Numb 1) (Numb 2)) (unsafe exprs "1 - 2"))
+
+main = do runTestTT (TestList [testFunc1, testFunc2, testFunc3, testFunc4, testFunc5, testCallF1, testCallF2, testNumb, testBoolean1, testBoolean2, testVariable, testTimes1, testTimes2, testTimes3, testPlus1, testPlus2, testPlus3, testPlus4, testMinus])
