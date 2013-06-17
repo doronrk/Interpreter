@@ -30,4 +30,6 @@ testPlus4 = TestCase (assertEqual "add and mul"                    (Plus (Times 
 
 testMinus = TestCase (assertEqual "sub" (Minus (Numb 1) (Numb 2)) (unsafe exprs "1 - 2"))
 
-main = do runTestTT (TestList [testFunc1, testFunc2, testFunc3, testFunc4, testFunc5, testCallF1, testCallF2, testNumb, testBoolean1, testBoolean2, testVariable, testTimes1, testTimes2, testTimes3, testPlus1, testPlus2, testPlus3, testPlus4, testMinus])
+testIf = TestCase (assertEqual "if" (If (Boolean True) (Numb 0) (Numb 1)) (unsafe exprs "if true then 0 else 1"))
+
+main = do runTestTT (TestList [testFunc1, testFunc2, testFunc3, testFunc4, testFunc5, testCallF1, testCallF2, testNumb, testBoolean1, testBoolean2, testVariable, testTimes1, testTimes2, testTimes3, testPlus1, testPlus2, testPlus3, testPlus4, testMinus, testIf])

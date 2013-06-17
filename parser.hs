@@ -3,7 +3,7 @@ module Parser where
 import Text.Parsec (parse, parseTest, try)
 import Text.Parsec.Combinator (many1)
 import Text.Parsec.Prim ((<|>))
-import Text.Parsec.Char (spaces, letter, alphaNum)
+import Text.Parsec.Char (spaces, letter, alphaNum, oneOf)
 import Text.Parsec.String (Parser) -- type Parser = Parsec String ()
 import qualified Text.Parsec.Token as Token
 import Text.Parsec.Language(haskellStyle)
@@ -33,20 +33,21 @@ import Interpreter(Expr(..))
 -- factor -> id
 -- factor -> ( expr )
 
--- data AST = Bool Bool
---          | Num Int
---          | Id String
---          | Add AST AST
---          | Sub AST AST
---          | Mul AST AST
---          | Div AST AST
---          | If AST AST AST
---          | Let String AST AST
---          | Fn String AST
---          | App AST AST
---          deriving (Show, Eq)
+langDef = Token.LanguageDef { Token.commentStart    = ""
+                            , Token.commentEnd      = ""
+                            , Token.commentLine     = ""
+                            , Token.nestedComments  = False
+                            , Token.identStart      = letter
+                            , Token.identLetter     = alphaNum <|> oneOf "_'"
+                            , Token.opStart         = oneOf ":!#$%&*+./<=>?@\\^|-~"
+                            , Token.opLetter        = oneOf ":!#$%&*+./<=>?@\\^|-~"
+                            , Token.reservedOpNames = []
+                            , Token.reservedNames   = ["if", "then", "else", "fn", "=>", "let", "in", "true", "false", "+", "-", "*", "/"]
+                            , Token.caseSensitive   = True
+                            }
 
-lexer = Token.makeTokenParser haskellStyle
+lexer = Token.makeTokenParser langDef
+
 symbol     = Token.symbol lexer
 integer    = Token.integer lexer
 parens     = Token.parens lexer
