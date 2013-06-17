@@ -38,10 +38,6 @@ eval e env =
 						Boolean True -> eval true env
 						Boolean False -> eval false env
 						_ -> error "non-boolean in if"
-	-- 2a) we need env in each call to eval since there may be variables nested within Expr's
-	-- 2b) however, is there a way to avoid writing it in every recursive line since the Env doesn't change as we eval? 
-	-- 2c) (at least, I don't think the Env changes since variables are assigned during parsing, correct?)
-
 
 type Env = [(String, Expr)]
 
