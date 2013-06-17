@@ -1,10 +1,13 @@
 module Parser where
-import Parsing
-import Data.Char (isDigit)
-import Test.HUnit
 
--- this depends on code from Graham Hutton's Programming Haskell (http://www.cs.nott.ac.uk/~gmh/Parsing.lhs)
--- likely will want to port this to parsec eventually
+import Text.Parsec (parse, parseTest, try)
+import Text.Parsec.Combinator (many1)
+import Text.Parsec.Prim ((<|>))
+import Text.Parsec.Char (spaces, letter, alphaNum)
+import Text.Parsec.String (Parser) -- type Parser = Parsec String ()
+import qualified Text.Parsec.Token as Token
+import Text.Parsec.Language(haskellStyle)
+import Test.HUnit
 
 -- grammar for the lambda calculus
 
@@ -42,99 +45,103 @@ data AST = Bool Bool
          | App AST AST
          deriving (Show, Eq)
 
+lexer = Token.makeTokenParser haskellStyle
+symbol     = Token.symbol lexer
+integer    = Token.integer lexer
+parens     = Token.parens lexer
+identifier = Token.identifier lexer
+
 -- two expressions is an application, or one expression alone
 exprs :: Parser AST
-exprs = do e1 <- expr
-           e2 <- expr
-           return (App e1 e2)
-        +++ expr
+exprs = try (do e1 <- expr
+                e2 <- expr
+                return (App e1 e2))
+        <|> expr
 
 expr :: Parser AST
-expr = (do symbol "if"
-           e1 <- exprs
-           symbol "then"
-           e2 <- exprs
-           symbol "else"
-           e3 <- exprs
-           return (If e1 e2 e3))
-       +++ (do symbol "fn"
-               id <- identifier
-               symbol "=>"
-               body <- exprs
-               return (Fn id body))
-       +++ (do symbol "let"
-               id <- identifier
-               symbol "="
-               bound <- exprs
-               symbol "in"
-               body <- exprs
-               return (Let id bound body))
-       +++ term >>= expr'
+expr = try (do symbol "if"
+               e1 <- exprs
+               symbol "then"
+               e2 <- exprs
+               symbol "else"
+               e3 <- exprs
+               return (If e1 e2 e3))
+       <|> try (do symbol "fn"
+                   id <- identifier
+                   symbol "=>"
+                   body <- exprs
+                   return (Fn id body))
+       <|> try (do symbol "let"
+                   id <- identifier
+                   symbol "="
+                   bound <- exprs
+                   symbol "in"
+                   body <- exprs
+                   return (Let id bound body))
+       <|> (term >>= expr')
 
 expr' :: AST -> Parser AST
-expr' lhs = (do op <- symbol "+" +++ symbol "-"
-                rhs <- term
-                (expr' ((if op == "+" then Add else Sub) lhs rhs)))
-            +++ return lhs
+expr' lhs = try (do op <- try (symbol "+") <|> symbol "-"
+                    rhs <- term
+                    (expr' ((if op == "+" then Add else Sub) lhs rhs)))
+            <|> return lhs
 
-ast_num :: Parser AST
-ast_num = do n <- token nat
-             return (Num n)
+astNum :: Parser AST
+astNum = do int <- integer
+            return (Num (fromIntegral int)) -- cast Integer to Int, huh?
 
-ast_bool :: Parser AST
-ast_bool = do b <- false +++ true
-              return (Bool b)
-           where false = do symbol "false"
-                            return False
-                 true = do symbol "true"
-                           return True
+astBool :: Parser AST
+astBool = do b <- try false <|> true
+             return (Bool b)
+          where false = do symbol "false"
+                           return False
+                true = do symbol "true"
+                          return True
 
-ast_id :: Parser AST
-ast_id = do id <- identifier
-            return (Id id)
+astId :: Parser AST
+astId = do id <- identifier
+           return (Id id)
 
 factor :: Parser AST
-factor = do token (char '(')
-            e <- exprs
-            token (char ')')
-            return e
-         +++ ast_num +++ ast_bool +++ ast_id
+factor = try (parens exprs) <|> try astNum <|> try astBool <|> try astId
 
 term :: Parser AST
 term = factor >>= term'
 
 term' :: AST -> Parser AST
-term' lhs = (do op <- symbol "*" +++ symbol "/"
-                rhs <- factor
-                (term' ((if op == "*" then Mul else Div) lhs rhs)))
-            +++ return lhs
+term' lhs = try (do op <- try (symbol "*") <|> symbol "/"
+                    rhs <- factor
+                    (term' ((if op == "*" then Mul else Div) lhs rhs)))
+            <|> return lhs
 
-parseStr :: String -> [(AST,String)]
-parseStr s = parse exprs s
+-- used for testing only, bails on erros
+unsafe p s = case parse p "(unknown)" s of
+                  Left err -> error (show err)
+                  Right ast -> ast
 
-testFn1 = TestCase (assertEqual "fn1" [(Fn "x" (Id "x"),"")] (parseStr "fn x => x"))
-testFn2 = TestCase (assertEqual "fn2" [(Fn "x" (Id "x"),"")] (parseStr "(fn x => x)"))
-testFn3 = TestCase (assertEqual "fn3" [(Fn "x" (Id "x"),"")] (parseStr "fn x => (x)"))
-testFn4 = TestCase (assertEqual "fn4" [(Fn "x" (Id "x"),"")] (parseStr "(fn x => (x))"))
-testFn5 = TestCase (assertEqual "fn5" [(Fn "f" (Fn "x" (App (Id "f") (Id "x"))),"")] (parseStr "fn f => fn x => f x"))
+testFn1 = TestCase (assertEqual "fn1" (Fn "x" (Id "x")) (unsafe exprs "fn x => x"))
+testFn2 = TestCase (assertEqual "fn2" (Fn "x" (Id "x")) (unsafe exprs "(fn x => x)"))
+testFn3 = TestCase (assertEqual "fn3" (Fn "x" (Id "x")) (unsafe exprs "fn x => (x)"))
+testFn4 = TestCase (assertEqual "fn4" (Fn "x" (Id "x")) (unsafe exprs "(fn x => (x))"))
+testFn5 = TestCase (assertEqual "fn5" (Fn "f" (Fn "x" (App (Id "f") (Id "x")))) (unsafe exprs "fn f => fn x => f x"))
 
-testApp1 = TestCase (assertEqual "app1" [(If (App (Id "f") (Id "x")) (App (Id "g") (Id "y")) (App (Id "h") (Id "z")),"")] (parseStr "if f x then g y else h z"))
-testApp2 = TestCase (assertEqual "app2" [(Let "x" (App (Id "f") (Id "y")) (App (Id "g") (Id "x")),"")] (parseStr "let x = f y in g x"))
+testApp1 = TestCase (assertEqual "app1" (If (App (Id "f") (Id "x")) (App (Id "g") (Id "y")) (App (Id "h") (Id "z"))) (unsafe exprs "if f x then g y else h z"))
+testApp2 = TestCase (assertEqual "app2" (Let "x" (App (Id "f") (Id "y")) (App (Id "g") (Id "x"))) (unsafe exprs "let x = f y in g x"))
 
-testNum = TestCase (assertEqual "num" [(Num 123,"")] (parseStr "123"))
-testBool = TestCase (assertEqual "bool" [(Bool True,"")] (parseStr "true"))
-testId = TestCase (assertEqual "id" [(Id "foo","")] (parseStr "foo"))
+testNum   = TestCase (assertEqual   "num" (Num 123)    (unsafe exprs "123"))
+testBool1 = TestCase (assertEqual "bool1" (Bool True)  (unsafe exprs "true"))
+testBool2 = TestCase (assertEqual "bool2" (Bool False) (unsafe exprs "false"))
+testId    = TestCase (assertEqual    "id" (Id "foo")   (unsafe exprs "foo"))
 
-testMul = TestCase (assertEqual "mul" [(Mul (Num 1) (Num 2), "")] (parseStr "1 * 2"))
-testMulLeftAssoc = TestCase (assertEqual "mul should be left assoc" [(Mul (Mul (Num 1) (Num 2)) (Num 3), "")] (parseStr "1 * 2 * 3"))
-testMulDivLeftAssoc = TestCase (assertEqual "mul & div should be left assoc" [(Div (Mul (Num 1) (Num 2)) (Num 3), "")] (parseStr "1 * 2 / 3"))
+testMul1 = TestCase (assertEqual "mul"                            (Mul (Num 1) (Num 2))               (unsafe exprs "1 * 2"))
+testMul2 = TestCase (assertEqual "mul should be left assoc"       (Mul (Mul (Num 1) (Num 2)) (Num 3)) (unsafe exprs "1 * 2 * 3"))
+testMul3 = TestCase (assertEqual "mul & div should be left assoc" (Div (Mul (Num 1) (Num 2)) (Num 3)) (unsafe exprs "1 * 2 / 3"))
 
-testAdd = TestCase (assertEqual "add" [(Add (Num 1) (Num 2), "")] (parseStr "1 + 2"))
-testSub = TestCase (assertEqual "sub" [(Sub (Num 1) (Num 2), "")] (parseStr "1 - 2"))
-testAddLeftAssoc = TestCase (assertEqual "add should be left assoc" [(Add (Add (Num 1) (Num 2)) (Num 3), "")] (parseStr "1 + 2 + 3"))
-testAddSubLeftAssoc = TestCase (assertEqual "add & sub should be left assoc" [(Sub (Add (Num 1) (Num 2)) (Num 3), "")] (parseStr "1 + 2 - 3"))
-testAddAndMul = TestCase (assertEqual "add and mul" [(Add (Mul (Num 1) (Num 2)) (Num 3), "")] (parseStr "1 * 2 + 3"))
+testAdd1 = TestCase (assertEqual "add"                            (Add (Num 1) (Num 2))               (unsafe exprs "1 + 2"))
+testAdd2 = TestCase (assertEqual "add should be left assoc"       (Add (Add (Num 1) (Num 2)) (Num 3)) (unsafe exprs "1 + 2 + 3"))
+testAdd3 = TestCase (assertEqual "add & sub should be left assoc" (Sub (Add (Num 1) (Num 2)) (Num 3)) (unsafe exprs "1 + 2 - 3"))
+testAdd4 = TestCase (assertEqual "add and mul"                    (Add (Mul (Num 1) (Num 2)) (Num 3)) (unsafe exprs "1 * 2 + 3"))
 
-tests = TestList [testFn1,testFn2,testFn3,testFn4,testFn5,testApp1,testApp2,testNum,testBool,testId,testMul,testMulLeftAssoc,testMulDivLeftAssoc,testAdd,testSub,testAddLeftAssoc,testAddSubLeftAssoc,testAddAndMul]
+testSub = TestCase (assertEqual "sub" (Sub (Num 1) (Num 2)) (unsafe exprs "1 - 2"))
 
-main = do runTestTT tests
+main = do runTestTT (TestList [testFn1, testFn2, testFn3, testFn4, testFn5, testApp1, testApp2, testNum, testBool1, testBool2, testId, testMul1, testMul2, testMul3, testAdd1, testAdd2, testAdd3, testAdd4, testSub])
