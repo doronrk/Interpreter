@@ -3,11 +3,13 @@ import Parsing
 import Data.Char (isDigit)
 import Test.HUnit
 
--- grammar:
+-- this depends on code from Graham Hutton's Programming Haskell (http://www.cs.nott.ac.uk/~gmh/Parsing.lhs)
+-- likely will want to port this to parsec eventually
 
--- exprs  -> expr exprs'
--- exprs' -> expr exprs'
--- exprs' ->
+-- grammar for the lambda calculus
+
+-- exprs  -> expr expr
+-- exprs  -> expr
 
 -- expr   -> if expr then expr else expr
 -- expr   -> fn id => expr
@@ -40,6 +42,7 @@ data AST = Bool Bool
          | App AST AST
          deriving (Show, Eq)
 
+-- two expressions is an application, or one expression alone
 exprs :: Parser AST
 exprs = do e1 <- expr
            e2 <- expr
@@ -106,6 +109,7 @@ term' lhs = (do op <- symbol "*" +++ symbol "/"
                 (term' ((if op == "*" then Mul else Div) lhs rhs)))
             +++ return lhs
 
+parseStr :: String -> [(AST,String)]
 parseStr s = parse exprs s
 
 testFn1 = TestCase (assertEqual "fn1" [(Fn "x" (Id "x"),"")] (parseStr "fn x => x"))
