@@ -53,8 +53,3 @@ getExpr s ((a,b):xs)
 
 addVar :: String -> Expr -> Env -> Env
 addVar s e1 env = (s,e1):env
-
-myEnv = addVar "a" (Numb 1) []
-myEnv2 = addVar "b" (Numb 2) myEnv
-myEnv3 = addVar "three" (Plus (Numb 2) (Numb 1)) myEnv2
-
